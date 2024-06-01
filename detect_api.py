@@ -139,18 +139,16 @@ class DetectAPI:
                     #
                     for *xyxy, conf, cls in reversed(det):
                         line = (int(cls.item()), [int(_.item()) for _ in xyxy], conf.item())  # label format
-                        print(line)
                         #过滤置信度低于设定阈值的结果
                         if line[2]<=self.thres:
                             continue
-                        
-                        #特殊补丁(去除风扇)
-                        center_x = 0.5*(line[1][0] + line[1][2])
-                        center_y = 0.5*(line[1][1] + line[1][3])
-                        width = abs(line[1][0] - line[1][2])
-                        height = abs(line[1][1] - line[1][3])
-                        if line[2]<=0.8 and center_x<372 and center_y < 322 and width<100 and height < 150:
-                            continue
+                        #特殊补丁(去除风扇) 已修复，不需要该补丁
+                        #center_x = 0.5*(line[1][0] + line[1][2])
+                        #center_y = 0.5*(line[1][1] + line[1][3])
+                        #width = abs(line[1][0] - line[1][2])
+                        #height = abs(line[1][1] - line[1][3])
+                        #if line[2]<=0.8 and center_x<372 and center_y < 322 and width<100 and height < 150:
+                        #    continue
                         
                         result_txt.append(line)
                         label = f'{self.names[int(cls)]} {conf:.2f}'

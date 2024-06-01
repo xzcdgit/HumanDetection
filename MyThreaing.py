@@ -122,7 +122,7 @@ class FrameGetThread(QThread):
                 
             self.imgSignal.emit((qimg1, None))
             self.infoSignal.emit(infos)
-            time.sleep(0.01)
+            time.sleep(0.02)
         self.is_quit = False
 
     def run(self) -> None:
@@ -206,7 +206,7 @@ class FrameGetThread(QThread):
         
         count_person = 0
         count_arclights = 0
-
+        trans_distance = 999
         #图像AI分析
         with torch.no_grad():
             result, names = self.net.detect([img])
@@ -217,6 +217,14 @@ class FrameGetThread(QThread):
                 #print(names[cls], x1, y1, x2, y2, conf)  # 识别物体种类、左上角x坐标、左上角y轴坐标、右下角x轴坐标、右下角y轴坐标，置信度
                 if names[cls] == "person":
                     count_person += 1
+                    #高度中心计算
+                    center_y = 0.5*abs(y2+y1)
+                    #判定距离通道中心最近的识别框
+                    if center_y<600:
+                        trans_distance = min(trans_distance, (600-center_y)*1.8)
+                    else:
+                        trans_distance = min(trans_distance, center_y-600)
+
                 elif names[cls] == "arclight":
                     count_arclights += 1
                 '''
@@ -246,7 +254,7 @@ class FrameGetThread(QThread):
         #回传图像数据和判定结果
         ratio = 0.5 #图片尺寸变换比例
         qimg = cvimg.scaled(int(cvimg.width()*ratio), int(cvimg.height()*ratio))
-        infos = {"person_num":count_person, "exist_person":exist_person, "arclight_num":count_arclights, "exist_arclights":exist_arclights}
+        infos = {"person_num":count_person, "exist_person":exist_person, "arclight_num":count_arclights, "exist_arclights":exist_arclights, "min_distance": trans_distance}
         #回调
         return qimg, infos
 

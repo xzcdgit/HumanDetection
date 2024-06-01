@@ -1,6 +1,7 @@
 
 import sys
 import time
+import datetime
 import logging
 import ctypes
 import asyncio
@@ -23,9 +24,13 @@ class MyApp(QMainWindow, Ui_MainWindow):
         self.last_update_time2 = 0
         self.fps2 = 0
         self.frame_count = 0
-        self.arcligth_st_time = time.time()
-        self.person_st_time = time.time()
+        self.person_last_time = time.time() #最近一次出现人体的时间
+        self.arcligth_last_time = time.time() #最近一次出现弧光的时间
+        self.is_lock = False #异常锁定标识符
+        self.unlock_time_stamp = time.time() #锁定结束时间戳
+        self.lock_time = 10 #锁定时长
         self.last_output_signal = False
+        self.last_exist_person_info = {"min_distance":500}
         #self.modbus_controller = Modbus.ModbusTcpClientClass('192.168.31.65', 502 ,0.1)
         self.init_log()
 
@@ -60,6 +65,7 @@ class MyApp(QMainWindow, Ui_MainWindow):
         self.recall_img.quit_thread()
 
     #检测回调
+    #图像回调
     def recall_show_img(self, pixs:tuple):
         if pixs[0] is not None:
             self.label.setPixmap(QPixmap(pixs[0]))
@@ -67,7 +73,7 @@ class MyApp(QMainWindow, Ui_MainWindow):
         if pixs[1] is not None:
             self.label_4.setPixmap(QPixmap(pixs[1]))
             self.label_4.setScaledContents(True)
-
+    #判定信息回调
     def recall_show_info(self, infos:dict):
         is_person = False
         is_arclight = False
@@ -85,49 +91,64 @@ class MyApp(QMainWindow, Ui_MainWindow):
         self.last_update_time = last_time
 
         #Ai人体检测判定
-        #人员存在逻辑判定，有人信号保留1秒
+        #人员存在
         if infos["exist_person"]:
             is_person = True
-            self.person_st_time = time.time()
+            self.person_last_time = time.time()
             self.label_3.setText("是")
             self.label_3.setStyleSheet("color: white; background-color: Red ")
+            self.last_exist_person_info = infos #记录最近一次有人的帧信息
             #self.modbus_controller.write_single_coil(2,1)
-        elif current_time-self.person_st_time > 1:
-            is_person = False
-            self.label_3.setText("否")
-            self.label_3.setStyleSheet("color: white; background-color: Green ")
-            #self.modbus_controller.write_single_coil(2,0)
+        else:#本帧图像无人
+            #判定人员是否从图像边界消失
+            if self.last_exist_person_info["min_distance"] < 500 and self.is_lock == False: #非边界消失并且未锁定，锁定按键x秒
+                print("目标失踪！")
+                self.unlock_time_stamp = time.time()+self.lock_time #设置锁定结束时间
+                self.is_lock = True #修改锁定标识符
+
+            elif self.is_lock == False and current_time-self.person_last_time > 0.5:
+                is_person = False
+                self.label_3.setText("否")
+                self.label_3.setStyleSheet("color: white; background-color: Green ")
+                #self.modbus_controller.write_single_coil(2,0)
+
+            #如果已经锁定且当前时间大于锁定截至时间则解锁
+            elif current_time > self.unlock_time_stamp:
+                self.is_lock = False #解锁
 
         #弧光存在判定
         if infos["exist_arclights"]:
             is_arclight = True
-            self.arcligth_st_time = time.time()
+            self.arcligth_last_time = time.time()
             self.label_6.setText("是")
             self.label_6.setStyleSheet("color: white; background-color: Red ")
             #self.modbus_controller.write_single_coil(3,1)
 
-        #如果无弧光离上次弧光出现的时间超过x秒，则弧光报警解除
-        elif current_time-self.arcligth_st_time > 1.5:
+        #弧光信号保留x秒
+        elif current_time-self.arcligth_last_time > 1:
             is_arclight = False
             self.label_6.setText("否")
             self.label_6.setStyleSheet("color: white; background-color: Green ")
             #self.modbus_controller.write_single_coil(3,0)
 
-        #综合信号输出
-        print("人员检定框数量：{}，弧光检定框数量：{}".format(infos["person_num"], infos["arclight_num"]))
         is_out = is_arclight or is_person
-
+        #调试信息输出
+        self.statusbar.showMessage("测试信息 人员检定框数：{} 弧光检定框数：{} 最小距离：{:.1f}  判定结果：{}".format(infos["person_num"], infos["arclight_num"], infos["min_distance"], is_out))
+        
         '''
+        #存在信号判定输出
         if is_out:
             self.modbus_controller.write_single_coil(1,1)
         else:
             self.modbus_controller.write_single_coil(1,0)
 
         print(is_out, is_out != self.last_output_signal)
+        '''
+        #日志记录
         if is_out != self.last_output_signal:
             self.last_output_signal = is_out
             self.logger.info("existent personnel "+str(is_out))
-        '''
+        
             
 
 if __name__ == "__main__":
