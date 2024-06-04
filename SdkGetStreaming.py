@@ -15,6 +15,7 @@ DLL_PATH_WIN = r"D:\Code\Python\HumanDetection\lib\win"
 DLL_PATH_LINUX = r"D:\Code\Python\HumanDetection\lib\linux"
 data_chane1 = queue.Queue(3)
 
+
 class YU12ToMat:
 
     def __init__(self) -> None:
@@ -53,7 +54,7 @@ class YU12ToMat:
         height = outYuv.shape[0]
         width = outYuv.shape[1]
         ndim = outYuv.ndim
-        #print("yv12toYUV: width=", width, "height=", height)
+        # print("yv12toYUV: width=", width, "height=", height)
 
         if ndim == 2:
             # Y
@@ -121,7 +122,6 @@ class GetSdkStreaming:
         self.LoadLib()
 
         self.SetSDKInitCfg()  # 设置组件库和SSL库加载路径
-
 
     def run(self):
         # 创建窗口
@@ -213,15 +213,11 @@ class GetSdkStreaming:
     def LoadLib(self):
         # 加载库,先加载依赖库
         if self.is_windows:
-            os.chdir(
-                DLL_PATH_WIN
-            )
+            os.chdir(DLL_PATH_WIN)
             self.Objdll = HCNetSDK.ctypes.CDLL(r"./HCNetSDK.dll")  # 加载网络库
             self.Playctrldll = HCNetSDK.ctypes.CDLL(r"./PlayCtrl.dll")  # 加载播放库
         else:
-            os.chdir(
-                DLL_PATH_LINUX
-            )
+            os.chdir(DLL_PATH_LINUX)
             self.Objdll = PlayCtrl.cdll.LoadLibrary(r"./libhcnetsdk.so")
             self.Playctrldll = PlayCtrl.cdll.LoadLibrary(r"./libPlayCtrl.so")
 
@@ -344,16 +340,17 @@ def func():
     myDemo = GetSdkStreaming()
     myDemo.run()
 
+
 def start_thread():
     t1 = threading.Thread(target=func)
-    t1.setDaemon(True) #主线程退出时强制退出子线程
+    t1.setDaemon(True)  # 主线程退出时强制退出子线程
     t1.start()
 
 
 if __name__ == "__main__":
     transor = YU12ToMat()
     t1 = threading.Thread(target=func)
-    t1.setDaemon(True) #主线程退出时强制退出子线程
+    t1.setDaemon(True)  # 主线程退出时强制退出子线程
     t1.start()
     while True:
         if not data_chane1.empty():
